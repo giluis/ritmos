@@ -1,6 +1,13 @@
 let slider;
 const tempo = [1, 2, 3, 4, 6, 8];
-let metronome;
+const metronome = {
+    value: 60,
+    increment: 0,
+    interval: setInterval((_) => {
+        // do nothing
+    }, 10000),
+};
+
 /**
  * @type {Circle}
  */
@@ -14,8 +21,22 @@ function setup() {
     slider.parent("control");
     slider.id("myslider");
     beatcircle = new Circle(width / 2, height / 2, 450, tempo[slider.value()]);
-	
+    let buttons = selectAll(".metronomeButton");
+    for (const b of buttons) {
+        // console.log(b.html());
+        b.mousePressed(updateMetronome.bind(null, parseInt(b.html())));
+    }
+    updateMetronome(0);
 }
+
+function updateMetronome(metro_inc) {
+    metro_inc = metro_inc ? metro_inc : 0;
+    metronome.value = Math.max(0, metronome.value + metro_inc);
+    select("#metronomeDisplay").html(metronome.value);
+    metronome.increment = (2 * PI) / (60 * (60 / metronome.value));
+}
+
+let a = 0;
 
 /**
  *
@@ -39,9 +60,35 @@ class Circle {
         this.radius = radius;
         this.period = period;
         /**
-         * @type {{strong: boolean, beat: boolean, x: number, y: number}[]}
+         * @type {{ x: number, y: number, angle: number, strong: bool}[]}
          */
-        this.points = this.generate_points();
+        this.divisions = this.generate_divisions();
+        this.pivot = {
+            division: 0,
+            angle: 0 - PI/2,
+            passthrough: false,
+        };
+    }
+
+    
+
+    update(increment) {
+        this.pivot.passthrough = false;
+        this.pivot.angle += increment;
+        if (this.pivot.angle % (PI * 2) < this.divisions[this.pivot.division]) {
+        };
+
+        if (
+            this.pivot.angle % (PI * 2) >
+            this.divisions[(this.pivot.division + 1) % this.period].angle %
+                (PI * 2)
+            
+        ) {
+            this.pivot.division += 1 ;
+            this.pivot.division %= this.period;
+            this.pivot.passthrough = true;
+            // console.log(this.pivot.passthrough )
+        }
     }
 
     /**
@@ -65,7 +112,7 @@ class Circle {
      * @param {number} idx
      */
     toggle_strong_at(idx) {
-        this.points[idx].strong = !this.points[idx].strong;
+        this.divisions[idx].strong = !this.divisions[idx].strong;
     }
 
     /**
@@ -75,6 +122,7 @@ class Circle {
      * always start on top of the circle, rather than on the right of the circle,
      * as is typical in trignometric circles
      * @param {number} n
+     * @returns {number}
      */
     angle_at_period(n) {
         return ((n % this.period) * (2 * PI)) / this.period - PI / 2;
@@ -84,29 +132,47 @@ class Circle {
      *
      * @param {number} n
      * @param {number} line_len
-     * @returns
+     * @returns {[number,number]}
      */
-    line_at_period(n, line_len) {
+    line_at_period(n, line_len, distance_from_circumference) {
         let angle = this.angle_at_period(n);
-        let inner_point = this.point_at_angle(angle, -line_len / 2);
-        let outer_point = this.point_at_angle(angle, +line_len / 2);
+        let inner_point = this.point_at_angle(
+            angle,
+            -line_len / 2 + distance_from_circumference
+        );
+        let outer_point = this.point_at_angle(
+            angle,
+            +line_len / 2 + distance_from_circumference
+        );
         return [inner_point, outer_point];
     }
 
-    generate_points() {
+    generate_divisions() {
         return range(this.period).map((i) => {
             let angle = this.angle_at_period(i);
-            let { x, y } = this.point_at_angle(angle, 0);
-            return { x, y, strong: false, beat: false };
+            // sub PI/2 so that the first division is the top most one, rather than the right most
+            let { x, y } = this.point_at_angle(angle - PI/2, 0);
+            return { x, y, angle, strong: false };
         });
     }
 
     render() {
         stroke(255);
-        strokeWeight(5);
+        strokeWeight(2);
         fill(0);
-        circle(this.center.x, this.center.y, this.radius);
-        this.points.forEach((p, i) => {
+        // circle(this.center.x, this.center.y, this.radius);
+
+        strokeWeight(5);
+        let point = this.point_at_angle(0 + this.pivot.angle, 0);
+        let pivot_radius = 10;
+        if (this.pivot.passthrough) {
+            pivot_radius = 20;
+
+        }
+
+        circle(point.x, point.y, pivot_radius);
+
+        this.divisions.forEach((p, i) => {
             let line_len = 30;
             let radius = 15;
             if (p.strong) {
@@ -115,13 +181,8 @@ class Circle {
                 line_len = 50;
                 radius = 25;
             }
-
-            if (p.beat) {
-                circle(p.x, p.y, radius);
-            } else {
-                let [inner, outer] = this.line_at_period(i, line_len);
-                line(inner.x, inner.y, outer.x, outer.y);
-            }
+            let [inner, outer] = this.line_at_period(i, line_len, -35);
+            line(inner.x, inner.y, outer.x, outer.y);
             stroke(255);
             strokeWeight(5);
         });
@@ -138,7 +199,7 @@ class Circle {
         if (period != this.period) {
             this.period = period;
             console.log("cleared");
-            this.points = this.generate_points();
+            this.divisions = this.generate_divisions();
             // this.points.forEach((p, i) => {
             //     console.log(`Point: (${p.x}, ${p.y})`);
             //     if (dist(mouseX, mouseY, p.x, p.y) < 50) {
@@ -150,7 +211,7 @@ class Circle {
 }
 
 function mouseClicked() {
-    beatcircle.points.forEach((p, i) => {
+    beatcircle.divisions.forEach((p, i) => {
         // console.log(`
         // 	mouse: {x: ${mouseX}, y: ${mouseY}},
         // 	point: {x: ${p.x}, y: ${p.y}},
@@ -158,19 +219,23 @@ function mouseClicked() {
 
         // `);
         if (dist(mouseX, mouseY, p.x, p.y) < 50) {
-            console.log(`Clicked on ${i}`);
             beatcircle.toggle_strong_at(i);
         }
     });
 }
 
+let b = 0;
+let c = true;
+
 function draw() {
-    frameRate(5);
+    frameRate(60);
     background(0);
     beatcircle.setPeriod(tempo[slider.value()]);
-	beatcircle.points[frameCount%beatcircle.period].beat = true;
-	beatcircle.points[(frameCount - 1 )%beatcircle.period].beat = false ;
+    beatcircle.update(metronome.increment);
+    beatcircle.divisions[frameCount % beatcircle.period].beat = true;
+    beatcircle.divisions[(frameCount - 1) % beatcircle.period].beat = false;
     // beatcircle.toggle_strong_at(frameCount % beatcircle.period);
     beatcircle.render();
-
+    // beatcircle.velocity = 2*PI / frameRate() * (120 / frameRate() );
 }
+
