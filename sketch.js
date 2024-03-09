@@ -9,9 +9,25 @@ const metronome = {
 };
 
 /**
+ * @type {{metronome: any, strong: any}}
+ */
+const sounds = {};
+
+function preload() {
+    // let metro = loadSound("./bass_short.mp3");
+    // let strong = loadSound("./metronome_short.mp3");
+    // sounds.strong = strong;
+    // sounds.metronome = metro;
+}
+
+/**
  * @type {Circle}
  */
 let beatcircle;
+
+function startPlaying() {
+    alert("O som ainda não funciona 😥");
+}
 
 function setup() {
     const cnv = createCanvas(windowWidth, 1200);
@@ -26,17 +42,21 @@ function setup() {
         // console.log(b.html());
         b.mousePressed(updateMetronome.bind(null, parseInt(b.html())));
     }
+
     updateMetronome(0);
+    // sounds.metronome.play()
 }
 
 function updateMetronome(metro_inc) {
+    console.log("Metronome", metronome);
     metro_inc = metro_inc ? metro_inc : 0;
     metronome.value = Math.max(0, metronome.value + metro_inc);
     select("#metronomeDisplay").html(metronome.value);
-    metronome.increment = (2 * PI) / (60 * (60 / metronome.value));
+    clearInterval(metronome.interval);
+    metronome.interval = setInterval(() => {
+        beatcircle.update();
+    }, 1000 / (metronome.value / 60) / beatcircle.period);
 }
-
-let a = 0;
 
 /**
  *
@@ -63,32 +83,18 @@ class Circle {
          * @type {{ x: number, y: number, angle: number, strong: bool}[]}
          */
         this.divisions = this.generate_divisions();
-        this.pivot = {
-            division: 0,
-            angle: 0 - PI/2,
-            passthrough: false,
-        };
+        this.pointer = 0;
+        this.highlightTimer = 0;
     }
 
-    
+    update() {
+        this.highlightTimer = 15;
+        this.incPointer();
+        // sounds.metronome.play();
+    }
 
-    update(increment) {
-        this.pivot.passthrough = false;
-        this.pivot.angle += increment;
-        if (this.pivot.angle % (PI * 2) < this.divisions[this.pivot.division]) {
-        };
-
-        if (
-            this.pivot.angle % (PI * 2) >
-            this.divisions[(this.pivot.division + 1) % this.period].angle %
-                (PI * 2)
-            
-        ) {
-            this.pivot.division += 1 ;
-            this.pivot.division %= this.period;
-            this.pivot.passthrough = true;
-            // console.log(this.pivot.passthrough )
-        }
+    incPointer() {
+        this.pointer = (this.pointer + 1) % this.period;
     }
 
     /**
@@ -151,9 +157,29 @@ class Circle {
         return range(this.period).map((i) => {
             let angle = this.angle_at_period(i);
             // sub PI/2 so that the first division is the top most one, rather than the right most
-            let { x, y } = this.point_at_angle(angle - PI/2, 0);
+            let { x, y } = this.point_at_angle(angle, 0);
+            if (i == 0) {
+                return { x, y, angle, strong: true };
+            }
             return { x, y, angle, strong: false };
         });
+    }
+
+    /**
+     * 
+     * @param {boolean} beat 
+     * @param {boolean} strong 
+     * @returns {[number, number]} [beat_distance_increment, radius_increment]
+     */
+    config(beat,strong) {
+        if (beat && strong) {
+            return [20, 27];
+        } else  if (beat && !strong) {
+            return [20, 8]
+
+        }
+
+        return [0, 0];
     }
 
     render() {
@@ -163,29 +189,44 @@ class Circle {
         // circle(this.center.x, this.center.y, this.radius);
 
         strokeWeight(5);
-        let point = this.point_at_angle(0 + this.pivot.angle, 0);
-        let pivot_radius = 10;
-        if (this.pivot.passthrough) {
-            pivot_radius = 20;
-
-        }
-
-        circle(point.x, point.y, pivot_radius);
 
         this.divisions.forEach((p, i) => {
+            let [bi, ri] = this.config(
+                this.pointer == i && this.highlightTimer > 0,
+                p.strong
+            );
+            let radius = 15 + ri;
+            let beat_distance = 30 + bi;
             let line_len = 30;
-            let radius = 15;
+
+            // if (this.pointer == i) {
+            //     if (this.highlightTimer === 5) {
+            //         if (p.strong) {
+            //             sounds.strong.play();
+            //         } else {
+            //             sounds.metronome.play();
+            //         }
+            //     } else if (this.highlightTimer === 3) {
+            //         sounds.strong.stop()
+            //         sounds.metronome.stop();
+            //     }
+            // }
+
+            let [_, outerr] = this.line_at_period(i, beat_distance, 0);
             if (p.strong) {
                 stroke(255, 0, 0);
-                strokeWeight(7);
-                line_len = 50;
-                radius = 25;
+            }
+            circle(outerr.x, outerr.y, radius);
+            if (p.strong) {
+                strokeWeight(6);
+                stroke(255, 0, 0);
             }
             let [inner, outer] = this.line_at_period(i, line_len, -35);
             line(inner.x, inner.y, outer.x, outer.y);
             stroke(255);
             strokeWeight(5);
         });
+        this.highlightTimer = Math.max(this.highlightTimer - 1, 0);
     }
 
     /**
@@ -224,18 +265,8 @@ function mouseClicked() {
     });
 }
 
-let b = 0;
-let c = true;
-
 function draw() {
-    frameRate(60);
     background(0);
     beatcircle.setPeriod(tempo[slider.value()]);
-    beatcircle.update(metronome.increment);
-    beatcircle.divisions[frameCount % beatcircle.period].beat = true;
-    beatcircle.divisions[(frameCount - 1) % beatcircle.period].beat = false;
-    // beatcircle.toggle_strong_at(frameCount % beatcircle.period);
     beatcircle.render();
-    // beatcircle.velocity = 2*PI / frameRate() * (120 / frameRate() );
 }
-

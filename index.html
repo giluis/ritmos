@@ -1,18 +1,20 @@
 <html>
   <head>
     <script src="https://cdn.jsdelivr.net/npm/p5@1.9.1/lib/p5.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.1/addons/p5.sound.js"></script>
     <script src="sketch.js" defer></script>
 	<link rel="stylesheet" href="styles.css">
   </head>
   <body>
     <main>
 		<section id="control">
-			This is the control panel
+      Control panel
       <div id="metronome">
         <button class="metronomeButton">+5</button>
         <button class="metronomeButton">-5</button>
         <div id="metronomeDisplay">60</div>
       </div>
+      <button id="start" onclick="startPlaying()"> 🔊 </button>
 		</section>
 		<section id="beats">
 		</section>

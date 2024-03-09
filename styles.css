@@ -1,3 +1,6 @@
+body {
+	background-color: black;
+}
 main {
 	display: flex;
 	flex-direction: column;
@@ -10,6 +13,7 @@ section#control {
 	width: 100%;
 	font-size: 30px;
 	height: 240px;
+	color: white;
 }
 
 #beats {
@@ -18,5 +22,4 @@ section#control {
 
 canvas {
 	height: 100%;
-
 }
